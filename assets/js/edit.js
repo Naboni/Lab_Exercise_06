@@ -55,6 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', updateTask);
 
+
+    // Update task function
     function updateTask(e) {
         e.preventDefault();
         // Check empty entry
@@ -64,17 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        /* 
-        Instruction set to handle Update
 
-        1. Declare the transaction and object store objects 
-        2. Use the id on put method of index db
-        
-        */
+        // 1. Declare the transaction and object store objects 
 
         let transaction = DB.transaction(['tasks'], 'readwrite');
         let objectStore = transaction.objectStore('tasks');
 
+        // 2. Use the id on put method of index db
         let request = objectStore.put({taskName:taskInput.value, date: new Date(), id: id})
         // console.log(request);
 

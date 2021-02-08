@@ -101,6 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.appendChild(document.createTextNode(cursor.value.taskName));
                 const link = document.createElement('a');
                 link.className = 'delete-item secondary-content';
+                
+                // updated link.innerHTML
                 link.innerHTML = 
                 `<i>${cursor.value.date}</i>&nbsp;
                  <i class="fa fa-remove"></i>
