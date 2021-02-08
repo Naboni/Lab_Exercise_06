@@ -1,150 +1,211 @@
-// Define UI Variables 
-const taskInput = document.querySelector('#task'); //the task input text field
-const form = document.querySelector('#task-form'); //The form at the top
-const filter = document.querySelector('#filter'); //the task filter text field
-const taskList = document.querySelector('.collection'); //The UL
-const clearBtn = document.querySelector('.clear-tasks'); //the all task clear button
+const taskInput = document.querySelector('#task')
+const form = document.querySelector('#task-form')
+const filter = document.querySelector('#filter')
+const taskList = document.querySelector('.collection')
+const clearBtn = document.querySelector('.clear-tasks')
 
-const reloadIcon = document.querySelector('.fa'); //the reload button at the top navigation 
+const reloadIcon = document.querySelector('.fa');
 
-// Add Event Listener  [Form , clearBtn and filter search input ]
-
-// form submit 
-form.addEventListener('submit', addNewTask);
-// Clear All Tasks
-clearBtn.addEventListener('click', clearAllTasks);
-//   Filter Task 
-filter.addEventListener('keyup', filterTasks);
-// Remove task event [event delegation]
-taskList.addEventListener('click', removeTask);
-// Event Listener for reload 
-reloadIcon.addEventListener('click', reloadPage);
-// DOM load event 
-document.addEventListener('DOMContentLoaded', loadTasksfromDB);
+const sortA = document.querySelector("#asc")
+const sortD = document.querySelector("#des")
 
 
+let DB;
 
+document.addEventListener('DOMContentLoaded', () => {
+    let tasksDB = indexedDB.open('tasks', 1);
 
-// Add New  Task Function definition 
-function addNewTask(e) {
-
-    e.preventDefault(); //disable form submission
-
-
-    // Check empty entry
-    if (taskInput.value === '') {
-        taskInput.style.borderColor = "red";
-
-        return;
+    tasksDB.onerror = function () {
+        console.log('Error Creating Database');
     }
 
-    // Create an li element when the user adds a task 
-    const li = document.createElement('li');
-    // Adding a class
-    li.className = 'collection-item';
-    // Create text node and append it 
-    li.appendChild(document.createTextNode(taskInput.value));
-    // Create new element for the link 
-    const link = document.createElement('a');
-    // Add class and the x marker for a 
-    link.className = 'delete-item secondary-content';
-    link.innerHTML = '<i class="fa fa-remove"></i>';
-    // Append link to li
-    li.appendChild(link);
-    // Append to UL 
-    taskList.appendChild(li);
+    tasksDB.onsuccess = function () {
+        console.log('Database Ready')
+        DB = tasksDB.result 
 
-    addToDatabase(taskInput.value);
-
-
-}
-
-
-
-
-
-// Clear Task Function definition 
-function clearAllTasks() {
-
-    //This is the first way 
-    // taskList.innerHTML = '';
-
-    //  Second Wy 
-    while (taskList.firstChild) {
-        taskList.removeChild(taskList.firstChild);
+        displayTaskList();
     }
 
-    clearAllTasksfromDB();
-}
+    tasksDB.onupgradeneeded = function (e) {
+        console.log('Upgrade!!!')
+        let DB = e.target.result;
 
+        let objectStore = DB.createObjectStore('tasks', {
+            keyPath: 'id',
+            // date: "date",
+            autoIncrement: true
+        });
+        objectStore.createIndex('taskName', 'taskName', {
+            unique: false
+        });
+        objectStore.createIndex('date', 'date', {
+            unique: false
+        });
+        console.log('Database Ready & Fields Created!');
+    }
 
+    form.addEventListener('submit', addNewTask)
 
-// Filter tasks function definition 
-function filterTasks(e) {
+    function addNewTask(e) {
+        e.preventDefault();
 
-    /*  
-    Instruction for Handling the Search/filter 
-    
-    1. Receive the user input from the text input 
-    2. Assign it to a variable so the us can reuse it 
-    3. Use the querySelectorAll() in order to get the collection of li which have  .collection-item class 
-    4. Iterate over the collection item Node List using forEach
-    5. On each element check if the textContent of the li contains the text from User Input  [can use indexOf]
-    6 . If it contains , change the display content of the element as block , else none
-    
-    
-    */
+        if (taskInput.value === '') {
+            taskInput.style.borderColor = "red";
 
-}
+            return;
+        }
 
-// Remove Task function definition 
-function removeTask(e) {
-    if (e.target.parentElement.classList.contains('delete-item')) {
-        if (confirm('Are You Sure about that ?')) {
-            e.target.parentElement.parentElement.remove();
+        // Added date column to the table
+        let d = new Date()
 
-            // Remove from DB [Local Storage ...]
-            removefromDB(e.target.parentElement.parentElement);
+        let newTask = {
+            taskName: taskInput.value,
+            date: d
+        }
 
+        let transaction = DB.transaction(['tasks'], 'readwrite');
+        let objectStore = transaction.objectStore('tasks');
+
+        let request = objectStore.add(newTask);
+
+        request.onsuccess = () => {
+            form.reset();
+        }
+        transaction.oncomplete = () => {
+            console.log('Task Added');
+
+            displayTaskList();
+        }
+        transaction.onerror = () => {
+            console.log('Error Adding Task');
         }
 
     }
-}
 
 
-// Reload Page Function 
-function reloadPage() {
-    //using the reload fun on location object 
-    location.reload();
-}
+    function displayTaskList() {
+        while (taskList.firstChild) {
+            taskList.removeChild(taskList.firstChild);
+        }
+        let objectStore = DB.transaction('tasks').objectStore('tasks');
+
+        objectStore.openCursor().onsuccess = function (e) {
+            let cursor = e.target.result;
+
+            if (cursor) {
 
 
-// Load from Storage Database 
-function loadTasksfromDB() {
-    let listofTasks = loadfromDB();
-    if (listofTasks.length != 0) {
+                const li = document.createElement('li');
+                li.setAttribute('data-task-id', cursor.value.id);
+                li.className = 'collection-item';
+                li.appendChild(document.createTextNode(cursor.value.taskName));
+                const link = document.createElement('a');
+                link.className = 'delete-item secondary-content';
+                link.innerHTML = 
+                `<i>${cursor.value.date}</i>&nbsp;
+                 <i class="fa fa-remove"></i>
+                &nbsp;
+                <a href="edit.html?id=${cursor.value.id}"><i class="fa fa-edit"></i> </a>
+                `;
 
+                const date = document.createElement('a');
+                date.className = "date"
+                // date.innerHTML = `${cursor.value.date}`
 
+                li.appendChild(link);
+                li.appendChild(date)
 
-        listofTasks.forEach(function(eachTask) {
-
-            // Create an li element when the user adds a task 
-            const li = document.createElement('li');
-            // Adding a class
-            li.className = 'collection-item';
-            // Create text node and append it 
-            li.appendChild(document.createTextNode(eachTask));
-            // Create new element for the link 
-            const link = document.createElement('a');
-            // Add class and the x marker for a 
-            link.className = 'delete-item secondary-content';
-            link.innerHTML = '<i class="fa fa-remove"> </i>';
-            // Append link to li
-            li.appendChild(link);
-            // Append to UL 
-            taskList.appendChild(li);
-        });
-
+                taskList.appendChild(li);
+                cursor.continue();
+            }
+        }
     }
 
-}
+    taskList.addEventListener('click', removeTask)
+
+    function removeTask(e) {
+        let taskID = Number(e.target.parentElement.parentElement.getAttribute('data-task-id'))
+        let transaction = DB.transaction(['tasks'], 'readwrite');
+        let objectStore = DB.transaction('tasks', 'readwrite').objectStore('tasks')
+
+        if (e.target.parentElement.classList.contains('delete-item')) {
+            if (confirm('Are You Sure about that ?')) {
+                e.target.parentElement.parentElement.remove()
+                objectStore.delete(taskID);
+
+                transaction.oncomplete = () => {
+                    e.target.parentElement.parentElement.remove();
+                }
+            }
+        }
+    }
+
+    clearBtn.addEventListener('click', () => {
+        if (confirm('Are You Sure?')) {
+            indexedDB.deleteDatabase('tasks')
+            while (taskList.firstChild) {
+                taskList.removeChild(taskList.firstChild)
+            }
+            window.location.reload()
+        }
+    })
+
+    reloadIcon.addEventListener('click', () => {
+        location.reload()
+    })
+
+    filter.addEventListener('keyup', (e) => {
+        const searchInput = e.target.value.toLowerCase();
+        const listItems = taskList.getElementsByTagName('li');
+        Array.from(listItems).forEach((listItem) => {
+            const listItemTextContext = listItem.textContent;
+            if (listItemTextContext.toLowerCase().indexOf(searchInput) != -1) {
+                listItem.style.display = 'block';
+            } else listItem.style.display = 'none';
+        })
+    })
+
+    sortA.addEventListener('click', () => {
+        var listContainer, i, switching, listElements, shouldSwitch;
+        listContainer = document.getElementById("collection");
+        switching = true;
+        while (switching) {
+            switching = false;
+            listElements = listContainer.getElementsByTagName("LI");
+            for (i = 0; i < (listElements.length - 1); i++) {
+                shouldSwitch = false;
+    
+                if (listElements[i].textContent > listElements[i + 1].textContent) {
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+            if (shouldSwitch) {
+                listElements[i].parentNode.insertBefore(listElements[i + 1], listElements[i]);
+                switching = true;
+            }
+        }
+    })
+
+    sortD.addEventListener('click', () => {
+        var listContainer, i, switching, listElements, shouldSwitch;
+        listContainer = document.getElementById("collection");
+        switching = true;
+        while (switching) {
+            switching = false;
+            listElements = listContainer.getElementsByTagName("LI");
+            for (i = 0; i < (listElements.length - 1); i++) {
+                shouldSwitch = false;
+    
+                if (listElements[i].textContent < listElements[i + 1].textContent) {
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+            if (shouldSwitch) {
+                listElements[i].parentNode.insertBefore(listElements[i + 1], listElements[i]);
+                switching = true;
+            }
+        }
+    })
+});
